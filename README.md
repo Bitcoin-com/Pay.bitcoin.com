@@ -1,8 +1,6 @@
-# Bitcoin.com BIP70 Merchant Server, Beta version
+# Bitcoin.com BIP70 Merchant Server
 
 A server for the creation and fulfillment of Bitcoin Cash invoices utilizing the [BIP70 Payment Protocol](https://github.com/bitcoin/bips/blob/master/bip-0070.mediawiki)
-
-Please note that this API is not final and _will_ be changed before final release.
 
 ## Invoice Creation
 
@@ -14,8 +12,12 @@ A POST request is made to `https://pay.bitcoin.com/create_invoice`
 JSON string of an output object with the following properties:
 * `script` - (optional) Hex string of desired locking script
 * `address` - (optional) Legacy or CashAddr format BCH address. P2PKH or P2SH
-* `amount` - Amount in satoshis
-* `fiat` - (optional) Three-letter fiat currency code. Defaults to 'USD'
+* `amount` - Amount as decimal. 8 decimals for BCH, 2 decimals for USD, 0 decimals for JPY.
+* `fiat` - (optional) Main asset to settle price in. Defaults to BCH if null.
+* `fiat_rate` - (optional) Rate in [currency]/BCH, if currency is USD, amount is 10.0, then rate would be the USD/BCH price. If null, server will use default rate.
+* `webhook` - (optional) URL for webhook
+* `memo` - (optional) Memo to be sent back
+* `api_key` - Merchant's/Store's API key. This will get the merchant's settings from server. This will populate the merchant data field in the BIP70 response.
 
 Either script or address can be used. Only one is required.
 
@@ -24,7 +26,12 @@ If more than one output is desired send a JSON string of an object with the foll
     * `script` - (optional) Hex string of desired locking script
     * `address` - (optional) Legacy or CashAddr format BCH address. P2PKH or P2SH
     * `amount` - Amount in satoshis
-* `fiat` - (optional) Three-letter fiat currency code. Defaults to 'USD'
+* `currency` - (optional) Main asset to settle price in. Defaults to BCH if null.
+* `fiat` - (optional) Main asset to settle price in. Defaults to BCH if null.
+* `fiat_rate` - (optional) Rate in [currency]/BCH, if currency is USD, amount is 10.0, then rate would be the USD/BCH price. If null, server will use default rate.
+* `webhook` - (optional) URL for webhook
+* `memo` - (optional) Memo to be sent back
+* `api_key` - Merchant's/Store's API key. This will get the merchant's settings from server. This will populate the merchant data field in the BIP70 response.
 
 #### Headers
 
@@ -44,33 +51,39 @@ The response will be a JSON format payload quite similar to the BIP70 format.
 * `memo` - A plain text description of the payment request, can be displayed to the user / kept for records
 * `paymentUrl` - The url where the payment should be sent
 * `paymentId` - The invoice ID, can be kept for records
+* `fiatSymbol` - Counter currency (like USD)
+* `fiatRate` - Rate in [currency]/BCH
+* `webhookUrl` - URL for webhook (if specified on invoice creation)
 
 #### Response Body Example
 ```
 {
-  "network": "main",
-  "currency": "BCH",
-  "outputs": [
-    {
-      "amount": 39300,
-      "script": "76a914018a532856c45d74f7d67112547596a03819077188ac",
-      "address": "199PArEUmwmcch2LsjxVpegDXsomKdgYi",
-      "type": "P2PKH"
-    }
-  ],
-  "time": "2018-01-12T22:04:54.364Z",
-  "expires": "2018-01-12T22:19:54.364Z",
-  "status":"open",
-  "merchantId":"00000000-0000-0000-0000-000000000000",
-  "memo": "Payment request for invoice TmyrxFvAi4DjFNy3c7EjVm",
-  "paymentUrl": "https://pay.bitcoin.com/i/TmyrxFvAi4DjFNy3c7EjVm",
-  "paymentId": "TmyrxFvAi4DjFNy3c7EjVm"
+   "network":"main",
+   "currency":"BCH",
+   "outputs":[
+      {
+         "script":"76a914018a532856c45d74f7d67112547596a03819077188ac",
+         "amount":25500,
+         "address":"199PArEUmwmcch2LsjxVpegDXsomKdgYi",
+         "type":"P2PKH"
+      }
+   ],
+   "time":"2019-06-19T17:57:41.573Z",
+   "expires":"2019-06-19T18:12:41.573Z",
+   "status":"open",
+   "merchantId":"00000000-0000-0000-0000-000000000000",
+   "memo":"Your message here",
+   "fiatSymbol":"USD",
+   "fiatRate":409.7,
+   "paymentUrl":"https://pay.bitcoin.com/i/DHL7iqo2CK3hDXZK34Sry8",
+   "paymentId":"DHL7iqo2CK3hDXZK34Sry8",
+   "webhookUrl":"http://somedomain.com/webhook"
 }
 ```
 
 ### Curl Example
 ```
-curl -v -L -H 'Content-Type: application/json' -d '{"script":"76a914018a532856c45d74f7d67112547596a03819077188ac","amount":25500}' https://pay.bitcoin.com/create_invoice
+curl -v -L -H 'Content-Type: application/json' -d '{"script":"76a914018a532856c45d74f7d67112547596a03819077188ac","amount":25500, "webhook":"http://somedomain.com/webhook", "fiat":"USD", "memo":"Your message here"}' https://pay.bitcoin.com/create_invoice
 *   Trying 13.53.78.23...
 * TCP_NODELAY set
 * Connected to pay.bitcoin.com (13.53.78.23) port 443 (#0)
@@ -85,12 +98,12 @@ curl -v -L -H 'Content-Type: application/json' -d '{"script":"76a914018a532856c4
 < HTTP/1.1 200 OK
 < Access-Control-Allow-Origin: *
 < Content-Type: application/json
-< Date: Tue, 07 May 2019 20:42:37 GMT
+< Date: Wed, 12 Jun 2019 22:51:36 GMT
 < Connection: keep-alive
-< Content-Length: 487
+< Content-Length: 451
 <
 * Connection #0 to host pay.bitcoin.com left intact
-{"network":"main","currency":"BCH","outputs":[{"script":"76a914018a532856c45d74f7d67112547596a03819077188ac","amount":25500,"address":"199PArEUmwmcch2LsjxVpegDXsomKdgYi","type":"P2PKH"}],"time":"2019-05-07T20:42:35.174Z","expires":"2019-05-07T20:57:35.174Z","status":"open","merchantId":"00000000-0000-0000-0000-000000000000","memo":"Payment request for invoice Auo1tTBURpbPucr8rBbpyS","paymentUrl":"https://pay.bitcoin.com/i/Auo1tTBURpbPucr8rBbpyS","paymentId":"Auo1tTBURpbPucr8rBbpyS"}% 
+{"network":"main","currency":"BCH","outputs":[{"script":"76a914018a532856c45d74f7d67112547596a03819077188ac","amount":25500,"address":"199PArEUmwmcch2LsjxVpegDXsomKdgYi","type":"P2PKH"}],"time":"2019-06-19T17:57:41.573Z","expires":"2019-06-19T18:12:41.573Z","status":"open","merchantId":"00000000-0000-0000-0000-000000000000","memo":"Your message here","fiatSymbol":"USD","fiatRate":409.7,"paymentUrl":"https://pay.bitcoin.com/i/DHL7iqo2CK3hDXZK34Sry8","paymentId":"DHL7iqo2CK3hDXZK34Sry8","webhookUrl":"http://somedomain.com/webhook"}% 
 ```
 
 ## Payment
@@ -114,11 +127,11 @@ protocol messages shall be:
 
 #### Request Status (Server-Sent Events)
 
-A GET request is made to `https://pay.bitcoin.com/s/{paymentID}`
+A GET request is made to `https://pay.bitcoin.com/s/{paymentId}`
 
 #### Request Status (Websockets)
 
-A Websocket Secure (WSS) request is made to `wss://pay.bitcoin.com/s/{paymentID}`
+A Websocket Secure (WSS) request is made to `wss://pay.bitcoin.com/s/{paymentId}`
 
 #### Response
 
@@ -126,7 +139,24 @@ Server will respond with a JSON response of the same type as the response during
 
 ### Invoice Web Page
 
-Visiting `https://pay.bitcoin.com/i/{paymentID}` in a browser returns a web page. Currently this page has a centered QR code and creates a Server-Sent Events connection, logging status to console.
+Visiting `https://pay.bitcoin.com/i/{paymentId}` in a browser returns a web page. Currently this page has a centered QR code and creates a Server-Sent Events connection, logging status to console.
+
+### Invoice Merchant Data
+
+Request made to `https://pay.bitcoin.com/m/{paymentId}` receive a JSON response containing data about the merchant that created the payment request
+
+#### Response Body Example
+```
+{
+   "paymentId":"DHL7iqo2CK3hDXZK34Sry8",
+   "merchantId":"00000000-0000-0000-0000-000000000000",
+   "name": "Bitcoin.com",
+   "email": "support@bitcoin.com",
+   "country": "JP",
+   "website": "https://bitcoin.com",
+   "image": "https://pay.bitcoin.com/logo/00000000-0000-0000-0000-000000000000"
+}
+```
 
 ### QR Code
 
