@@ -12,12 +12,13 @@ A POST request is made to `https://pay.bitcoin.com/create_invoice`
 JSON string of an output object with the following properties:
 * `script` - (optional) Hex string of desired locking script
 * `address` - (optional) Legacy or CashAddr format BCH address. P2PKH or P2SH
-* `amount` - Amount as decimal. 8 decimals for BCH, 2 decimals for USD, 0 decimals for JPY.
+* `amount` - Amount in satoshis
+* `fiatAmount` - (optional instead of `amount`) Amount denominated in `fiat`
 * `fiat` - (optional) Main asset to settle price in. Defaults to BCH if null.
-* `fiat_rate` - (optional) Rate in [currency]/BCH, if currency is USD, amount is 10.0, then rate would be the USD/BCH price. If null, server will use default rate.
+* `fiatRate` - (optional) Rate in [currency]/BCH, if currency is USD, amount is 10.0, then rate would be the USD/BCH price. If null, server will use default rate. Only available for select merchants.
 * `webhook` - (optional) URL for webhook
 * `memo` - (optional) Memo to be sent back
-* `api_key` - Merchant's/Store's API key. This will get the merchant's settings from server. This will populate the merchant data field in the BIP70 response.
+* `apiKey` - Merchant's/Store's API key. This will get the merchant's settings from server. This will populate the merchant data field in the BIP70 response.
 
 Either script or address can be used. Only one is required.
 
@@ -26,12 +27,13 @@ If more than one output is desired send a JSON string of an object with the foll
     * `script` - (optional) Hex string of desired locking script
     * `address` - (optional) Legacy or CashAddr format BCH address. P2PKH or P2SH
     * `amount` - Amount in satoshis
+    * `fiatAmount` - (optional instead of `amount`) Amount denominated in `fiat`
 * `currency` - (optional) Main asset to settle price in. Defaults to BCH if null.
 * `fiat` - (optional) Main asset to settle price in. Defaults to BCH if null.
-* `fiat_rate` - (optional) Rate in [currency]/BCH, if currency is USD, amount is 10.0, then rate would be the USD/BCH price. If null, server will use default rate.
+* `fiatRate` - (optional) Rate in [currency]/BCH, if currency is USD, amount is 10.0, then rate would be the USD/BCH price. If null, server will use default rate. Only available for select merchants.
 * `webhook` - (optional) URL for webhook
 * `memo` - (optional) Memo to be sent back
-* `api_key` - Merchant's/Store's API key. This will get the merchant's settings from server. This will populate the merchant data field in the BIP70 response.
+* `apiKey` - Merchant's/Store's API key. This will get the merchant's settings from server. This will populate the merchant data field in the BIP70 response.
 
 #### Headers
 
@@ -51,8 +53,10 @@ The response will be a JSON format payload quite similar to the BIP70 format.
 * `memo` - A plain text description of the payment request, can be displayed to the user / kept for records
 * `paymentUrl` - The url where the payment should be sent
 * `paymentId` - The invoice ID, can be kept for records
+* `paymentAsset` - BCH
 * `fiatSymbol` - Counter currency (like USD)
 * `fiatRate` - Rate in [currency]/BCH
+* `fiatTotal` - Sum of [outputs] amounts, denominated in [fiatSymbol]
 * `webhookUrl` - URL for webhook (if specified on invoice creation)
 
 #### Response Body Example
@@ -75,6 +79,7 @@ The response will be a JSON format payload quite similar to the BIP70 format.
    "memo":"Your message here",
    "fiatSymbol":"USD",
    "fiatRate":409.7,
+   "fiatTotal":0.1044735
    "paymentUrl":"https://pay.bitcoin.com/i/DHL7iqo2CK3hDXZK34Sry8",
    "paymentId":"DHL7iqo2CK3hDXZK34Sry8",
    "webhookUrl":"http://somedomain.com/webhook"
@@ -143,18 +148,42 @@ Visiting `https://pay.bitcoin.com/i/{paymentId}` in a browser returns a web page
 
 ### Invoice Merchant Data
 
-Request made to `https://pay.bitcoin.com/m/{paymentId}` receive a JSON response containing data about the merchant that created the payment request
+Request made to `https://pay.bitcoin.com/m/{paymentId}` receive a JSON response containing data about the invoice and the merchant that created the payment request
 
 #### Response Body Example
 ```
 {
-   "paymentId":"DHL7iqo2CK3hDXZK34Sry8",
-   "merchantId":"00000000-0000-0000-0000-000000000000",
-   "name": "Bitcoin.com",
-   "email": "support@bitcoin.com",
-   "country": "JP",
-   "website": "https://bitcoin.com",
-   "image": "https://pay.bitcoin.com/logo/00000000-0000-0000-0000-000000000000"
+   "merchantProcessor":"Bitcoin.com",
+   "merchantName":"Unregistered merchant",
+   "verification":"UNVERIFIED",
+   "invoiceCurrency":"USD",
+   "invoiceAmount":0.0498276,
+   "paymentCurrency":"BCH",
+   "paymentAmount":18000,
+   "conversionRate":276.82,
+   "conversionAssets":"USD/BCH",
+   "itemDesc":"Payment request for invoice FFbFxhisukytSvAwGqZDsD",
+   "email":"support@bitcoin.com",
+   "merchantWebsite":"https://www.bitcoin.com",
+   "phone":null,
+   "createTime":1567108639293,
+   "expiryTime":1567109539293,
+   "status":"open",
+   "outputs":
+      [
+         {
+            "script":"76a914018a532856c45d74f7d67112547596a03819077188ac",
+            "amount":7500,
+            "address":"199PArEUmwmcch2LsjxVpegDXsomKdgYi",
+            "type":"P2PKH"
+         },
+         {
+            "script":"76a9145d02663da9af3acde02fcd138abd998ab9edd56d88ac",
+            "amount":10500,
+            "address":"19UniZ1obAjU1tgUydYLzhyvaMignd1oNE",
+            "type":"P2PKH"
+         }
+      ]
 }
 ```
 
