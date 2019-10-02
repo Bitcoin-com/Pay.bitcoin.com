@@ -1,4 +1,4 @@
-# Bitcoin.com BIP70 Merchant Server
+# Bitcoin.com Simple Ledger Payment Protocol Merchant Server
 
 A server for the creation and fulfillment of BCH Simple Ledger Token invoices utilizing the [SLP Payment Protocol](https://github.com/vinarmani/slp-specifications/blob/payment-protocol/slp-payment-protocol.md)
 
@@ -13,9 +13,10 @@ JSON string with the following properties:
 * `token_id` - ID of SLP token to be sent (BCH transaction hash)
 * `slp_outputs` - An array of output objects formatted as:
     * `script` - (optional) Hex string of desired locking script
-    * `address` - (optional) Legacy or CashAddr format BCH address. P2PKH or P2SH
-    * `amount` - Amount in satoshis
-* `fiat` - (optional) Three-letter fiat currency code. Defaults to 'USD'
+    * `address` - (optional) SLP (must use simpleledger: uri prefix), Legacy or CashAddr format BCH address. P2PKH or P2SH
+    * `amount` - Amount in SLP units
+* `fiat` - (optional) Three-letter fiat currency code. Defaults to 'BCH'
+* `apiKey` - Merchant's/Store's API key. This will get the merchant's settings from server. This will populate the merchant data field in the BIP70 response.
 
 #### Headers
 
@@ -33,6 +34,10 @@ The response will be a JSON format payload quite similar to the BIP70 format.
 * `status` - The status of the invoice `open / paid / expired`
 * `merchantId` - UUID of associated merchant. If no merchant, uuid consists of all zeroes
 * `memo` - A plain text description of the payment request, can be displayed to the user / kept for records
+* `fiatSymbol` - Counter currency (like USD)
+* `fiatRate` - Rate in [currency]/BCH
+* `fiatTotal` - Sum of [send_amounts] in the first output (0 index), denominated in [fiatSymbol]
+* `paymentAsset` - The token being paid
 * `paymentUrl` - The url where the payment should be sent
 * `paymentId` - The invoice ID, can be kept for records
 
@@ -124,6 +129,58 @@ Server will respond with a JSON response of the same type as the response during
 ### Invoice Web Page
 
 Visiting `https://pay.bitcoin.com/i/{paymentID}` in a browser returns a web page. Currently this page has a centered QR code and creates a Server-Sent Events connection, logging status to console.
+
+### Invoice Merchant Data
+
+Request made to `https://pay.bitcoin.com/m/{paymentId}` receive a JSON response containing data about the invoice and the merchant that created the payment request
+
+#### Response Body Example
+```
+{
+   "merchantProcessor":"Bitcoin.com",
+   "merchantName":"Funcorp",
+   "verification":"DOMAIN",
+   "invoiceCurrency":"CNY",
+   "invoiceAmount":0.06999999996757071,
+   "paymentCurrency":"SPICE",
+   "paymentAmount":13.06571147,
+   "conversionRate":0.0053575344999999995,
+   "conversionAssets":"CNY/SPICE",
+   "itemDesc":"Purchasing CoinSpice Socks Demo",
+   "email":"contact@fun.com",
+   "merchantWebsite":"https://fun.com",
+   "phone":null,
+   "createTime":1567108288769,
+   "expiryTime":1567109188770,
+   "status":"open",
+   "outputs":
+   [
+      {
+         "script":"6a04534c500001010453454e44204de69e374a8ed21cbddd47f2338cc0f479dc58daa2bbe11cd604ca488eca0ddf080000000037a07ed10800000000164032ba",
+         "amount":0,
+         "token_id":"4de69e374a8ed21cbddd47f2338cc0f479dc58daa2bbe11cd604ca488eca0ddf",
+         "send_amounts":
+            [
+               933265105,
+               373306042
+            ],
+         "type":"SLP"
+      },
+      {
+         "script":"76a914eed376878448bf27739ecf8497752f2b4033d60388ac",
+         "amount":546,
+         "address":"1Nmo9N3ZVsL8GFrv6uNfr55a9ni4RoT7Fn",
+         "type":"P2PKH"
+      },
+      {
+         "script":"76a91400d365dd199b38f9afb38adf22280acc6d0879bb88ac",
+         "amount":546,
+         "address":"115NFBfmayUyLho8Sdt6tcYP3xLxpzJPf2",
+         "type":"P2PKH"
+      }
+   ]
+}
+```
 
 ### QR Code
 
